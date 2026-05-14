@@ -1,21 +1,20 @@
 import * as vscode from 'vscode';
 
-let terminalRightPanel: vscode.Terminal | undefined;
+let terminalCounter = 0;
+let lastActiveTerminal: vscode.Terminal | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-    // 注册命令：在右侧打开终端
+    // 命令：在右侧打开/新建终端
     const openCmd = vscode.commands.registerCommand(
         'terminalright.openInRightPanel',
         openTerminalInRightPanel
     );
     context.subscriptions.push(openCmd);
 
-    // 注册命令：切换终端面板位置到右侧
+    // 命令：切换面板到右侧
     const positionCmd = vscode.commands.registerCommand(
         'terminalright.setPanelRight',
-        () => {
-            vscode.commands.executeCommand('workbench.action.positionPanel', 'right');
-        }
+        () => vscode.commands.executeCommand('workbench.action.positionPanel', 'right')
     );
     context.subscriptions.push(positionCmd);
 }
@@ -23,29 +22,48 @@ export function activate(context: vscode.ExtensionContext) {
 async function openTerminalInRightPanel() {
     const config = vscode.workspace.getConfiguration('terminalright');
     const autoReveal = config.get<boolean>('autoReveal', true);
-    const createNew = config.get<boolean>('createNewTerminal', false);
+    const newTerminalEachTime = config.get<boolean>('newTerminalEachTime', true);
 
     try {
-        // 1. 确保终端面板位置在右侧
+        // 1. 确保终端面板在右侧
         await vscode.commands.executeCommand('workbench.action.positionPanel', 'right');
 
-        // 2. 获取或创建终端
-        if (createNew || !terminalRightPanel) {
-            terminalRightPanel = vscode.window.createTerminal({
-                name: 'Terminal Right',
+        // 2. 创建新终端或复用最后一个
+        let terminal: vscode.Terminal;
+
+        if (newTerminalEachTime) {
+            // 每次点击新建一个终端（像 Claude Code 新建对话一样）
+            terminalCounter++;
+            terminal = vscode.window.createTerminal({
+                name: `Terminal #${terminalCounter}`,
                 iconPath: new vscode.ThemeIcon('terminal')
             });
+        } else {
+            // 复用模式：如果有上次的终端且还在用，就复用；否则新建
+            if (!lastActiveTerminal) {
+                terminal = vscode.window.createTerminal({
+                    name: 'Terminal Right',
+                    iconPath: new vscode.ThemeIcon('terminal')
+                });
+            } else {
+                terminal = lastActiveTerminal;
+            }
         }
 
         // 3. 显示终端
-        if (terminalRightPanel) {
-            terminalRightPanel.show(autoReveal);
-        }
+        terminal.show(autoReveal);
+        lastActiveTerminal = terminal;
 
-        // 4. 如果终端面板没自动出现，强制聚焦
+        // 4. 聚焦终端面板
         if (autoReveal) {
             await vscode.commands.executeCommand('workbench.action.terminal.focus');
         }
+
+        // 5. 如果创建了多个终端并且 tab 栏没显示，确保它显示
+        if (terminalCounter >= 1) {
+            vscode.commands.executeCommand('workbench.action.terminal.showTabs');
+        }
+
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Terminal Right 错误: ${msg}`);
@@ -53,8 +71,5 @@ async function openTerminalInRightPanel() {
 }
 
 export function deactivate() {
-    if (terminalRightPanel) {
-        terminalRightPanel.dispose();
-        terminalRightPanel = undefined;
-    }
+    // 不需要额外清理，VS Code 自动管理终端生命周期
 }

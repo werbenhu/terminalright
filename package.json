@@ -40,10 +40,10 @@
           "default": true,
           "description": "Automatically reveal the terminal panel when opening"
         },
-        "terminalright.createNewTerminal": {
+        "terminalright.newTerminalEachTime": {
           "type": "boolean",
-          "default": false,
-          "description": "Create a new terminal each time instead of reusing the existing one"
+          "default": true,
+          "description": "Create a new terminal tab each click (like Claude Code's new conversation). VS Code shows them as tabs automatically."
         }
       }
     }
