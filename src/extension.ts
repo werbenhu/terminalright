@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
     // 命令：切换面板到右侧
     const positionCmd = vscode.commands.registerCommand(
         'terminalright.setPanelRight',
-        () => vscode.commands.executeCommand('workbench.action.positionPanel', 'right')
+        () => vscode.commands.executeCommand('workbench.action.positionPanelRight')
     );
     context.subscriptions.push(positionCmd);
 }
@@ -26,7 +26,7 @@ async function openTerminalInRightPanel() {
 
     try {
         // 1. 确保终端面板在右侧
-        await vscode.commands.executeCommand('workbench.action.positionPanel', 'right');
+        await vscode.commands.executeCommand('workbench.action.positionPanelRight');
 
         // 2. 创建新终端或复用最后一个
         let terminal: vscode.Terminal;

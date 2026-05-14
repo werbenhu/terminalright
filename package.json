@@ -29,7 +29,7 @@
         {
           "command": "terminalright.openInRightPanel",
           "group": "navigation",
-          "when": "editorFocus"
+          "when": "editorAreaVisible"
         }
       ]
     },
