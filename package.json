@@ -1,0 +1,65 @@
+{
+  "name": "terminalright",
+  "displayName": "Terminal Right",
+  "description": "Open terminal in the right side panel with one click",
+  "version": "0.1.0",
+  "publisher": "werbenhu",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "terminalright.openInRightPanel",
+        "title": "Terminal Right: Open Terminal in Right Panel",
+        "icon": "$(terminal)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "terminalright.openInRightPanel",
+          "group": "navigation",
+          "when": "editorFocus"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Terminal Right",
+      "properties": {
+        "terminalright.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically reveal the terminal panel when opening"
+        },
+        "terminalright.createNewTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Create a new terminal each time instead of reusing the existing one"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.9.3"
+  }
+}
