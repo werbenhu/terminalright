@@ -2,9 +2,13 @@
   "name": "terminalright",
   "displayName": "Terminal Right",
   "description": "Open a terminal on the right side of the editor without moving the bottom panel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "werbenhu",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/werbenhu/terminalright"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -12,8 +16,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:terminalright.openInRightPanel"
+    "onStartupFinished"
+    
   ],
   "main": "./out/extension.js",
   "l10n": "./l10n",

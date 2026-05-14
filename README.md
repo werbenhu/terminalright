@@ -33,6 +33,7 @@ git clone https://github.com/werbenhu/terminalright
 cd terminalright
 npm install
 npm run compile
+vsce package
 ```
 
 Press `F5` to launch the extension in debug mode.
