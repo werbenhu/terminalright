@@ -35,7 +35,7 @@ async function openTerminalInRightPanel() {
             // 每次点击新建一个终端（像 Claude Code 新建对话一样）
             terminalCounter++;
             terminal = vscode.window.createTerminal({
-                name: `Terminal #${terminalCounter}`,
+                name: `${vscode.l10n.t('Terminal Right')} #${terminalCounter}`,
                 iconPath: new vscode.ThemeIcon('terminal')
             });
         } else {
@@ -66,7 +66,7 @@ async function openTerminalInRightPanel() {
 
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        vscode.window.showErrorMessage(`Terminal Right 错误: ${msg}`);
+        vscode.window.showErrorMessage(`${vscode.l10n.t('Terminal Right error')}: ${msg}`);
     }
 }
 

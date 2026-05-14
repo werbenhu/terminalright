@@ -15,11 +15,12 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "commands": [
       {
         "command": "terminalright.openInRightPanel",
-        "title": "Terminal Right: Open Terminal in Right Panel",
+        "title": "%terminalright.openInRightPanel%",
         "icon": "$(terminal)"
       }
     ],
@@ -34,18 +35,18 @@
     },
     "configuration": {
       "title": "Terminal Right",
-      "properties": {
-        "terminalright.autoReveal": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically reveal the terminal panel when opening"
-        },
-        "terminalright.newTerminalEachTime": {
-          "type": "boolean",
-          "default": true,
-          "description": "Create a new terminal tab each click (like Claude Code's new conversation). VS Code shows them as tabs automatically."
+    "properties": {
+          "terminalright.autoReveal": {
+            "type": "boolean",
+            "default": true,
+            "description": "%terminalright.config.autoReveal%"
+          },
+          "terminalright.newTerminalEachTime": {
+            "type": "boolean",
+            "default": true,
+            "description": "%terminalright.config.newTerminalEachTime%"
+          }
         }
-      }
     }
   },
   "scripts": {
