@@ -1,7 +1,7 @@
 {
   "name": "terminalright",
   "displayName": "Terminal Right",
-  "description": "Open terminal in the right side panel with one click",
+  "description": "Open a terminal on the right side of the editor without moving the bottom panel",
   "version": "0.1.0",
   "publisher": "werbenhu",
   "license": "MIT",
@@ -12,7 +12,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onCommand:terminalright.openInRightPanel"
   ],
   "main": "./out/extension.js",
   "l10n": "./l10n",
@@ -21,7 +22,38 @@
       {
         "command": "terminalright.openInRightPanel",
         "title": "%terminalright.openInRightPanel%",
+        "category": "Terminal Right",
         "icon": "$(terminal)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "terminalright.openInRightPanel",
+        "key": "ctrl+alt+t",
+        "mac": "cmd+alt+t"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "terminalright",
+          "title": "Terminal Right",
+          "icon": "$(terminal)"
+        }
+      ]
+    },
+    "views": {
+      "terminalright": [
+        {
+          "id": "terminalright.panel",
+          "name": "Terminal Right"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "terminalright.panel",
+        "contents": "[$(terminal) Open Terminal on Right Side](command:terminalright.openInRightPanel)\n\nClick the button above to create a new terminal on the right side of the editor. The bottom panel stays untouched."
       }
     ],
     "menus": {
@@ -29,7 +61,14 @@
         {
           "command": "terminalright.openInRightPanel",
           "group": "navigation",
-          "when": "editorAreaVisible"
+          "when": "editorIsOpen"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "terminalright.openInRightPanel",
+          "when": "view == terminal",
+          "group": "navigation"
         }
       ]
     },

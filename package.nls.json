@@ -1,6 +1,6 @@
 {
-  "terminalright.openInRightPanel": "Terminal Right: Open Terminal in Right Panel",
-  "terminalright.commandDescription": "Open a new terminal in the right side panel",
-  "terminalright.config.autoReveal": "Automatically reveal the terminal panel when opening",
+  "terminalright.openInRightPanel": "Terminal Right: Open Terminal on Right Side",
+  "terminalright.commandDescription": "Open a new terminal on the right side of the editor",
+  "terminalright.config.autoReveal": "Automatically reveal the terminal when opening",
   "terminalright.config.newTerminalEachTime": "Create a new terminal tab each click (like Claude Code's new conversation)"
 }

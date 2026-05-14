@@ -1,6 +1,6 @@
 {
   "terminalright.openInRightPanel": "Terminal Right：在右侧打开终端",
-  "terminalright.commandDescription": "在右侧面板中打开一个新终端",
-  "terminalright.config.autoReveal": "打开时自动显示终端面板",
+  "terminalright.commandDescription": "在编辑器右侧打开一个新终端",
+  "terminalright.config.autoReveal": "打开时自动显示终端",
   "terminalright.config.newTerminalEachTime": "每次点击新建一个终端标签（类似 Claude Code 新建对话）"
 }
