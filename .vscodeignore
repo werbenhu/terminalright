@@ -1,5 +1,9 @@
 node_modules/
 .vscode-test/
-src/
 .gitignore
 *.vsix
+icon.svg
+tsconfig.json
+.claude/
+.claude/**
+README.en.md
