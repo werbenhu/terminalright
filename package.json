@@ -2,7 +2,7 @@
   "name": "terminalright",
   "displayName": "Terminal Right",
   "description": "Open a terminal in a split view of the editor without moving the bottom panel",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "werbenhu",
   "license": "MIT",
   "icon": "icon.png",
@@ -89,8 +89,10 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test": "npm run compile && node out/commandTitle.test.js"
   },
+
   "devDependencies": {
     "@types/node": "^25.7.0",
     "@types/vscode": "^1.85.0",

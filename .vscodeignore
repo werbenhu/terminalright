@@ -19,6 +19,7 @@ package-lock.json
 *.vsix
 out/**/*.js.map
 out/**/*.d.ts
+out/**/*.test.js
 
 # Docs ship? No — keep vsix lean; users read README on the marketplace.
 README.zh-cn.md

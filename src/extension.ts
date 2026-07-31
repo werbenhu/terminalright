@@ -1,20 +1,17 @@
 import * as vscode from 'vscode';
+import { firstCommandTitle } from './commandTitle';
 
 let terminalCounter = 0;
 const ownTerminals = new Set<vscode.Terminal>();
 const awaitingFirstCommand = new Set<vscode.Terminal>();
 
 /**
- * Stable handle stored next to each terminal we own. `Terminal.name` can be
- * renamed by the "first command as title" feature, and `tab.label` may be
- * shared by multiple terminals in reuse mode, so neither is a reliable key.
- * The creation name never changes and lets us find a terminal's tab again.
+ * Last editor group we placed an owned terminal into. Preferred over a full
+ * tab-label scan so short titles (`cd`, `git`) are less likely to join a
+ * foreign group that happens to share a label. Cleared when no live owned
+ * terminals remain.
  */
-interface OwnTerminal {
-	terminal: vscode.Terminal;
-	creationName: string;
-}
-const ownTerminalInfo = new Map<vscode.Terminal, OwnTerminal>();
+let lastOwnViewColumn: vscode.ViewColumn | undefined;
 
 type SplitDirection = 'right' | 'left' | 'up' | 'down';
 
@@ -34,8 +31,10 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.window.onDidCloseTerminal(t => {
 			ownTerminals.delete(t);
-			ownTerminalInfo.delete(t);
 			awaitingFirstCommand.delete(t);
+			if (![...ownTerminals].some(x => x.exitStatus === undefined)) {
+				lastOwnViewColumn = undefined;
+			}
 		})
 	);
 
@@ -60,23 +59,54 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(statusBarItem);
 }
 
+/**
+ * Find the editor group already hosting one of our terminals, so a new
+ * terminal joins it as a sibling tab instead of spawning another split.
+ *
+ * Prefer `lastOwnViewColumn` when it still contains a live owned tab. Fall
+ * back to scanning all groups by `tab.label` vs each terminal's current
+ * `name` (labels follow renames from "first command as title"). Names can
+ * collide; any group hosting one of ours is still a valid target.
+ */
 function findOwnTerminalColumn(): vscode.ViewColumn | undefined {
 	const liveNames = new Set(
 		[...ownTerminals]
-			.filter(t => t.exitStatus === undefined && ownTerminalInfo.has(t))
-			.map(t => ownTerminalInfo.get(t)!.creationName)
+			.filter(t => t.exitStatus === undefined)
+			.map(t => t.name)
 	);
 	if (liveNames.size === 0) {
+		lastOwnViewColumn = undefined;
 		return undefined;
 	}
+
+	if (lastOwnViewColumn !== undefined) {
+		for (const group of vscode.window.tabGroups.all) {
+			if (group.viewColumn !== lastOwnViewColumn) {
+				continue;
+			}
+			for (const tab of group.tabs) {
+				if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(tab.label)) {
+					return lastOwnViewColumn;
+				}
+			}
+		}
+	}
+
 	for (const group of vscode.window.tabGroups.all) {
 		for (const tab of group.tabs) {
 			if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(tab.label)) {
+				lastOwnViewColumn = group.viewColumn;
 				return group.viewColumn;
 			}
 		}
 	}
 	return undefined;
+}
+
+function rememberOwnColumn(column: vscode.ViewColumn | undefined): void {
+	if (column !== undefined) {
+		lastOwnViewColumn = column;
+	}
 }
 
 async function waitForActiveTerminalTab(name: string, timeoutMs = 2000): Promise<boolean> {
@@ -102,7 +132,9 @@ async function onFirstCommandStarted(terminal: vscode.Terminal, commandLine: str
 		return;
 	}
 
-	const title = commandLine.trim();
+	// Keep only the first command of the line: chains, pipes and redirections
+	// would make an unwieldy tab title (see firstCommandTitle).
+	const title = firstCommandTitle(commandLine);
 	if (!title) {
 		return;
 	}
@@ -148,6 +180,7 @@ async function openTerminalInRightPanel() {
 			const existing = [...ownTerminals].find(t => t.exitStatus === undefined);
 			if (existing) {
 				existing.show(autoReveal);
+				rememberOwnColumn(existingColumn);
 				return;
 			}
 		}
@@ -184,7 +217,6 @@ async function openTerminalInRightPanel() {
 		}
 
 		ownTerminals.add(terminal);
-		ownTerminalInfo.set(terminal, { terminal, creationName });
 		awaitingFirstCommand.add(terminal);
 
 		if (existingColumn === undefined && direction !== 'right') {
@@ -195,9 +227,16 @@ async function openTerminalInRightPanel() {
 			terminal.show(false);
 			if (await waitForActiveTerminalTab(creationName)) {
 				await vscode.commands.executeCommand(moveCommands[direction]);
+				rememberOwnColumn(vscode.window.tabGroups.activeTabGroup.viewColumn);
 			}
 		} else {
 			terminal.show(autoReveal);
+			// Prefer the column we asked for; for Beside, resolve after show.
+			if (existingColumn !== undefined) {
+				rememberOwnColumn(existingColumn);
+			} else {
+				rememberOwnColumn(findOwnTerminalColumn());
+			}
 		}
 
 	} catch (err) {
