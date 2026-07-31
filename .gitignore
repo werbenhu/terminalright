@@ -1,4 +1,18 @@
-node_modules
-out
-.vscode-test
+# Dependencies
+node_modules/
+
+# Build output
+out/
 *.vsix
+
+# Test run artifacts
+.vscode-test/
+
+# Local agent/editor config (personal, not shared)
+.claude/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+*.tmp

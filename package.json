@@ -1,10 +1,11 @@
 {
   "name": "terminalright",
   "displayName": "Terminal Right",
-  "description": "Open a terminal on the right side of the editor without moving the bottom panel",
-  "version": "0.1.1",
+  "description": "Open a terminal in a split view of the editor without moving the bottom panel",
+  "version": "1.0.0",
   "publisher": "werbenhu",
   "license": "MIT",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/werbenhu/terminalright"
@@ -17,7 +18,6 @@
   ],
   "activationEvents": [
     "onStartupFinished"
-    
   ],
   "main": "./out/extension.js",
   "l10n": "./l10n",
@@ -27,7 +27,7 @@
         "command": "terminalright.openInRightPanel",
         "title": "%terminalright.openInRightPanel%",
         "category": "Terminal Right",
-        "icon": "$(terminal)"
+        "icon": "icon.svg"
       }
     ],
     "keybindings": [
@@ -35,29 +35,6 @@
         "command": "terminalright.openInRightPanel",
         "key": "ctrl+alt+t",
         "mac": "cmd+alt+t"
-      }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "terminalright",
-          "title": "Terminal Right",
-          "icon": "$(terminal)"
-        }
-      ]
-    },
-    "views": {
-      "terminalright": [
-        {
-          "id": "terminalright.panel",
-          "name": "Terminal Right"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "terminalright.panel",
-        "contents": "[$(terminal) Open Terminal on Right Side](command:terminalright.openInRightPanel)\n\nClick the button above to create a new terminal on the right side of the editor. The bottom panel stays untouched."
       }
     ],
     "menus": {
@@ -78,18 +55,34 @@
     },
     "configuration": {
       "title": "Terminal Right",
-    "properties": {
-          "terminalright.autoReveal": {
-            "type": "boolean",
-            "default": true,
-            "description": "%terminalright.config.autoReveal%"
-          },
-          "terminalright.newTerminalEachTime": {
-            "type": "boolean",
-            "default": true,
-            "description": "%terminalright.config.newTerminalEachTime%"
-          }
+      "properties": {
+        "terminalright.autoReveal": {
+          "type": "boolean",
+          "default": true,
+          "description": "%terminalright.config.autoReveal%"
+        },
+        "terminalright.newTerminalEachTime": {
+          "type": "boolean",
+          "default": true,
+          "description": "%terminalright.config.newTerminalEachTime%"
+        },
+        "terminalright.splitDirection": {
+          "type": "string",
+          "enum": [
+            "right",
+            "left",
+            "up",
+            "down"
+          ],
+          "default": "right",
+          "description": "%terminalright.config.splitDirection%"
+        },
+        "terminalright.useFirstCommandAsTitle": {
+          "type": "boolean",
+          "default": true,
+          "description": "%terminalright.config.useFirstCommandAsTitle%"
         }
+      }
     }
   },
   "scripts": {
@@ -103,6 +96,7 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",
+    "@vscode/vsce": "^3.9.2",
     "eslint": "^8.56.0",
     "typescript": "^5.9.3"
   }

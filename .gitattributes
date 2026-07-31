@@ -1,0 +1,16 @@
+# Normalize line endings: check out as LF in the working tree so diffs stay
+# clean on Windows and reviews aren't drowned in CRLF noise. CRLF is still
+# produced locally by git's autocrlf if a user has it enabled.
+* text=auto eol=lf
+
+# Source and config files always use LF.
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.svg text eol=lf
+
+# Binary assets — never touch.
+*.png binary
+*.ico binary
+*.vsix binary
