@@ -1,6 +1,7 @@
 {
-  "terminalright.openInRightPanel": "Terminal Right: Open Terminal on Right Side",
-  "terminalright.commandDescription": "Open a new terminal on the right side of the editor",
+  "terminalright.openInRightPanel": "Terminal Right: Open Terminal in Split View",
   "terminalright.config.autoReveal": "Automatically reveal the terminal when opening",
-  "terminalright.config.newTerminalEachTime": "Create a new terminal tab each click (like Claude Code's new conversation)"
+  "terminalright.config.newTerminalEachTime": "Create a new terminal tab each click (like Claude Code's new conversation)",
+  "terminalright.config.splitDirection": "Side of the editor where new terminals open",
+  "terminalright.config.useFirstCommandAsTitle": "Use the first command run in the terminal as the tab title (requires shell integration)"
 }
