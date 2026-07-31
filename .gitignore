@@ -10,6 +10,7 @@ out/
 
 # Local agent/editor config (personal, not shared)
 .claude/
+.vscode/
 
 # OS / editor noise
 .DS_Store
