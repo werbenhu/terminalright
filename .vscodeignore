@@ -23,4 +23,7 @@ out/**/*.d.ts
 # Docs ship? No — keep vsix lean; users read README on the marketplace.
 README.zh-cn.md
 
+# Marketplace publisher profile assets (not part of the extension)
+publisher-logo.png
+
 # (node_modules excluded by default by vsce)
