@@ -33,11 +33,10 @@ The split direction is configurable — `right` (default), `left`, `up`, or `dow
 - **Four split directions.** Open the terminal on the right (default), left, top, or bottom with a single setting.
 - **First command as tab title.** The first command run in a fresh terminal becomes its tab title (e.g. `claude`, `npm run dev`), so tabs stay identifiable. Requires shell integration.
 - **One group, many tabs.** Each click adds a new terminal tab to the existing split group — no duplicate panels, no layout churn.
-- **Four ways to launch:**
+- **Three ways to launch:**
   1. Keyboard shortcut: `Ctrl+Alt+T` (Windows/Linux) or `Cmd+Alt+T` (macOS).
-  2. Status bar: click `$(terminal) Terminal Right` in the bottom-right corner.
-  3. Editor tab menu: click the terminal icon at the top-right of the active editor tab.
-  4. Command Palette: `Ctrl+Shift+P` → `Terminal Right: Open Terminal in Split View`.
+  2. Editor tab menu: click the terminal icon at the top-right of the active editor tab.
+  3. Command Palette: `Ctrl+Shift+P` → `Terminal Right: Open Terminal in Split View`.
 - **Localized.** Follows VS Code's display language (English / 中文).
 
 ---

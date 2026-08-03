@@ -267,24 +267,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Terminal shell execution events require a recent VS Code with shell
 	// integration; skip the feature silently when the API is unavailable.
-	if (typeof vscode.window.onDidStartTerminalShellExecution === 'function') {
-		context.subscriptions.push(
-			vscode.window.onDidStartTerminalShellExecution(e => {
-				void onFirstCommandStarted(e.terminal, e.execution.commandLine.value);
-			})
-		);
+		if (typeof vscode.window.onDidStartTerminalShellExecution === 'function') {
+			context.subscriptions.push(
+				vscode.window.onDidStartTerminalShellExecution(e => {
+					void onFirstCommandStarted(e.terminal, e.execution.commandLine.value);
+				})
+			);
+		}
 	}
-
-	const statusBarItem = vscode.window.createStatusBarItem(
-		vscode.StatusBarAlignment.Right,
-		100
-	);
-	statusBarItem.command = 'terminalright.openInRightPanel';
-	statusBarItem.text = '$(terminal) Terminal Right';
-	statusBarItem.tooltip = vscode.l10n.t('Open terminal in a split view');
-	statusBarItem.show();
-	context.subscriptions.push(statusBarItem);
-}
 
 /**
  * Find the editor group already hosting one of our terminals, so a new
