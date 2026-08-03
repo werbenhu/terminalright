@@ -73,12 +73,57 @@ function claimOwnedTerminal(terminal: vscode.Terminal): void {
 	bumpCounterFromName(terminal.name);
 }
 
+/** Collect editor groups that currently host at least one terminal tab. */
+function editorGroupsWithTerminals(): vscode.TabGroup[] {
+	return vscode.window.tabGroups.all.filter(group =>
+		group.tabs.some(tab => tab.input instanceof vscode.TabInputTerminal)
+	);
+}
+
 /**
- * After a window reload, in-memory `ownTerminals` is empty even though VS Code
- * restored our editor terminals. Reclaim them by creation name / current name
- * (and, as a last resort, by the last known editor column we persisted).
+ * Map tab labels in a column to live `Terminal` instances.
+ * After a restart VS Code often resets custom titles to the shell name
+ * (e.g. `powershell`), so label === terminal.name is the reliable link.
  */
-function recoverOwnedTerminals(): void {
+function terminalsInColumn(column: vscode.ViewColumn): vscode.Terminal[] {
+	const labels = new Set<string>();
+	for (const group of vscode.window.tabGroups.all) {
+		if (group.viewColumn !== column) {
+			continue;
+		}
+		for (const tab of group.tabs) {
+			if (tab.input instanceof vscode.TabInputTerminal) {
+				labels.add(tab.label);
+			}
+		}
+	}
+	if (labels.size === 0) {
+		return [];
+	}
+	return vscode.window.terminals.filter(
+		t => t.exitStatus === undefined && labels.has(t.name)
+	);
+}
+
+function claimTerminalsInColumn(column: vscode.ViewColumn): void {
+	const claimed = terminalsInColumn(column);
+	for (const terminal of claimed) {
+		claimOwnedTerminal(terminal);
+	}
+	if (claimed.length > 0) {
+		lastOwnViewColumn = column;
+	}
+}
+
+/**
+ * After a window reload, VS Code restores editor terminals but usually resets
+ * their title to the shell name (`powershell`, `bash`, …). Name-based ownership
+ * therefore fails. We reclaim by:
+ *  1. creation name / current name when still recognizable
+ *  2. last persisted editor column (any terminal tabs there are ours)
+ *  3. any existing editor-area terminal group (join it rather than split again)
+ */
+function recoverOwnedTerminals(direction: SplitDirection = 'right'): void {
 	const savedNames = new Set(
 		extensionContext?.workspaceState.get<string[]>(STATE_OWNED_CREATION_NAMES, []) ?? []
 	);
@@ -97,55 +142,67 @@ function recoverOwnedTerminals(): void {
 		}
 	}
 
-	// Last resort: terminals renamed via "first command as title" may lose a
-	// recognizable name if creationOptions was not restored. Reclaim every
-	// live terminal whose tab still sits in the column we last owned.
-	if (ownTerminals.size === 0) {
-		const savedColumn =
-			extensionContext?.workspaceState.get<number>(STATE_LAST_OWN_COLUMN) ??
-			lastOwnViewColumn;
-		if (savedColumn !== undefined) {
+	// Prefer the column we last owned if it still has terminal tabs — titles
+	// may all be shell defaults after restore, so claim by location.
+	const savedColumn =
+		extensionContext?.workspaceState.get<number>(STATE_LAST_OWN_COLUMN) ??
+		lastOwnViewColumn;
+	if (savedColumn !== undefined) {
+		const groups = editorGroupsWithTerminals();
+		if (groups.some(g => g.viewColumn === savedColumn)) {
 			claimTerminalsInColumn(savedColumn);
 		}
 	}
 
-	// Refresh lastOwnViewColumn from the live tab grid when possible.
-	findOwnTerminalColumn();
-	if (lastOwnViewColumn === undefined) {
-		const savedColumn = extensionContext?.workspaceState.get<number>(STATE_LAST_OWN_COLUMN);
-		if (savedColumn !== undefined) {
-			lastOwnViewColumn = savedColumn;
+	// Still nothing claimed: pick an existing editor terminal group so the
+	// next open joins it as a sibling tab instead of ViewColumn.Beside.
+	if (![...ownTerminals].some(t => t.exitStatus === undefined)) {
+		const column = pickEditorTerminalColumn(direction, savedColumn);
+		if (column !== undefined) {
+			claimTerminalsInColumn(column);
 		}
+	}
+
+	findOwnTerminalColumn(direction);
+	if (lastOwnViewColumn === undefined && savedColumn !== undefined) {
+		lastOwnViewColumn = savedColumn;
 	}
 }
 
 /**
- * Claim live terminals that currently appear as editor tabs in `column`.
- * Matching is by tab.label === terminal.name (VS Code keeps them in sync).
+ * Choose which editor group to treat as "our" terminal host when ownership
+ * cannot be established by name (typical after restart).
  */
-function claimTerminalsInColumn(column: vscode.ViewColumn): void {
-	const labels = new Set<string>();
-	for (const group of vscode.window.tabGroups.all) {
-		if (group.viewColumn !== column) {
-			continue;
-		}
-		for (const tab of group.tabs) {
-			if (tab.input instanceof vscode.TabInputTerminal) {
-				labels.add(tab.label);
-			}
-		}
+function pickEditorTerminalColumn(
+	direction: SplitDirection,
+	preferred?: vscode.ViewColumn
+): vscode.ViewColumn | undefined {
+	const groups = editorGroupsWithTerminals();
+	if (groups.length === 0) {
+		return undefined;
 	}
-	if (labels.size === 0) {
-		return;
-	}
-	for (const terminal of vscode.window.terminals) {
-		if (terminal.exitStatus === undefined && labels.has(terminal.name)) {
-			claimOwnedTerminal(terminal);
+
+	// Tabs that still carry our title win.
+	for (const group of groups) {
+		if (group.tabs.some(
+			tab => tab.input instanceof vscode.TabInputTerminal && isOwnedTerminalName(tab.label)
+		)) {
+			return group.viewColumn;
 		}
 	}
-	if (ownTerminals.size > 0) {
-		lastOwnViewColumn = column;
+
+	if (preferred !== undefined && groups.some(g => g.viewColumn === preferred)) {
+		return preferred;
 	}
+
+	// Directional heuristic: right → rightmost terminal group, left → leftmost.
+	const sorted = [...groups].sort((a, b) => a.viewColumn - b.viewColumn);
+	if (direction === 'left') {
+		return sorted[0].viewColumn;
+	}
+	// right / up / down: prefer the rightmost existing terminal group so a
+	// side-by-side layout keeps accumulating tabs on the terminal side.
+	return sorted[sorted.length - 1].viewColumn;
 }
 
 function persistOwnedState(): void {
@@ -182,18 +239,11 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(openCmd);
 
 	context.subscriptions.push(
-		vscode.window.onDidOpenTerminal(terminal => {
-			// VS Code may restore our terminals after activate; claim them so the
-			// next click joins their group instead of spawning a second split.
-			const creationName = getCreationName(terminal);
-			if (
-				isOwnedTerminalName(terminal.name) ||
-				isOwnedTerminalName(creationName)
-			) {
-				claimOwnedTerminal(terminal);
-				findOwnTerminalColumn();
-				persistOwnedState();
-			}
+		vscode.window.onDidOpenTerminal(() => {
+			// VS Code may restore editor terminals after activate (often with a
+			// reset shell title). Re-scan so the next click can join them.
+			recoverOwnedTerminals();
+			persistOwnedState();
 		})
 	);
 
@@ -202,7 +252,14 @@ export function activate(context: vscode.ExtensionContext) {
 			ownTerminals.delete(t);
 			awaitingFirstCommand.delete(t);
 			if (![...ownTerminals].some(x => x.exitStatus === undefined)) {
-				lastOwnViewColumn = undefined;
+				// Only clear the column if no editor terminal tabs remain there.
+				const column = lastOwnViewColumn;
+				if (
+					column === undefined ||
+					!editorGroupsWithTerminals().some(g => g.viewColumn === column)
+				) {
+					lastOwnViewColumn = undefined;
+				}
 			}
 			persistOwnedState();
 		})
@@ -235,21 +292,14 @@ export function activate(context: vscode.ExtensionContext) {
  *
  * Prefer `lastOwnViewColumn` when it still contains a live owned tab. Fall
  * back to scanning all groups by `tab.label` vs each terminal's current
- * `name` (labels follow renames from "first command as title"). Names can
- * collide; any group hosting one of ours is still a valid target.
+ * `name` (labels follow renames / shell-default restore titles).
  */
-function findOwnTerminalColumn(): vscode.ViewColumn | undefined {
-	const liveNames = new Set(
-		[...ownTerminals]
-			.filter(t => t.exitStatus === undefined)
-			.map(t => t.name)
-	);
-	if (liveNames.size === 0) {
-		lastOwnViewColumn = undefined;
-		return undefined;
-	}
+function findOwnTerminalColumn(direction: SplitDirection = 'right'): vscode.ViewColumn | undefined {
+	const live = [...ownTerminals].filter(t => t.exitStatus === undefined);
+	const liveNames = new Set(live.map(t => t.name));
 
-	if (lastOwnViewColumn !== undefined) {
+	// 1) Last known column still has a terminal tab we own (by name match).
+	if (lastOwnViewColumn !== undefined && liveNames.size > 0) {
 		for (const group of vscode.window.tabGroups.all) {
 			if (group.viewColumn !== lastOwnViewColumn) {
 				continue;
@@ -260,15 +310,48 @@ function findOwnTerminalColumn(): vscode.ViewColumn | undefined {
 				}
 			}
 		}
+		// After restart, titles become `powershell` but the tab is still in our
+		// column — accept any terminal tab in that column if we own that terminal.
+		if (terminalsInColumn(lastOwnViewColumn).some(t => ownTerminals.has(t))) {
+			return lastOwnViewColumn;
+		}
+		// Column still has editor terminals at all (claimed by location).
+		if (editorGroupsWithTerminals().some(g => g.viewColumn === lastOwnViewColumn)) {
+			return lastOwnViewColumn;
+		}
 	}
 
+	// 2) Scan all groups for tabs matching live owned terminal names.
+	if (liveNames.size > 0) {
+		for (const group of vscode.window.tabGroups.all) {
+			for (const tab of group.tabs) {
+				if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(tab.label)) {
+					lastOwnViewColumn = group.viewColumn;
+					return group.viewColumn;
+				}
+			}
+		}
+	}
+
+	// 3) Tabs that still show our branded title (even if not yet in ownTerminals).
 	for (const group of vscode.window.tabGroups.all) {
 		for (const tab of group.tabs) {
-			if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(tab.label)) {
+			if (tab.input instanceof vscode.TabInputTerminal && isOwnedTerminalName(tab.label)) {
 				lastOwnViewColumn = group.viewColumn;
 				return group.viewColumn;
 			}
 		}
+	}
+
+	// 4) Any editor-area terminal group (restart → shell default titles).
+	const picked = pickEditorTerminalColumn(direction, lastOwnViewColumn);
+	if (picked !== undefined) {
+		lastOwnViewColumn = picked;
+		return picked;
+	}
+
+	if (live.length === 0) {
+		lastOwnViewColumn = undefined;
 	}
 	return undefined;
 }
@@ -342,19 +425,24 @@ async function openTerminalInRightPanel() {
 	const direction = config.get<SplitDirection>('splitDirection', 'right');
 
 	try {
-		// Reclaim terminals restored by VS Code after a reload/restart so we
-		// join their existing editor group instead of opening a second split.
-		recoverOwnedTerminals();
+		// Reclaim terminals restored by VS Code after a reload/restart. Titles
+		// are often reset to the shell name (`powershell`); join by editor group.
+		recoverOwnedTerminals(direction);
 
-		const existingColumn = findOwnTerminalColumn();
+		const existingColumn = findOwnTerminalColumn(direction);
 
 		// Reuse mode: if a live owned terminal already exists, just reveal it.
 		// Respecting splitDirection here would spawn fresh panels every click,
 		// which contradicts "reuse" — so we keep the existing column.
 		if (!newTerminalEachTime && existingColumn !== undefined) {
-			const existing = [...ownTerminals].find(t => t.exitStatus === undefined);
+			const inColumn = terminalsInColumn(existingColumn);
+			const existing =
+				inColumn.find(t => ownTerminals.has(t)) ??
+				[...ownTerminals].find(t => t.exitStatus === undefined) ??
+				inColumn[0];
 			if (existing) {
 				existing.show(autoReveal);
+				claimOwnedTerminal(existing);
 				rememberOwnColumn(existingColumn);
 				return;
 			}
@@ -362,7 +450,8 @@ async function openTerminalInRightPanel() {
 
 		let location: vscode.TerminalEditorLocationOptions;
 		if (existingColumn !== undefined) {
-			location = { viewColumn: existingColumn };
+			// Open as a sibling tab in the existing terminal editor group.
+			location = { viewColumn: existingColumn, preserveFocus: !autoReveal };
 		} else if (direction === 'right') {
 			location = { viewColumn: vscode.ViewColumn.Beside };
 		} else {
@@ -411,7 +500,10 @@ async function openTerminalInRightPanel() {
 			if (existingColumn !== undefined) {
 				rememberOwnColumn(existingColumn);
 			} else {
-				rememberOwnColumn(findOwnTerminalColumn());
+				// Give the editor grid a tick to register the new terminal tab
+				// before we snapshot its column.
+				await new Promise(resolve => setTimeout(resolve, 50));
+				rememberOwnColumn(findOwnTerminalColumn(direction));
 			}
 		}
 
