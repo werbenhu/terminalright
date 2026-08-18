@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { firstCommandTitle } from './commandTitle';
+import { firstCommandTitle, padTabTitle, stripTabTitlePad } from './commandTitle';
 
 let terminalCounter = 0;
 const ownTerminals = new Set<vscode.Terminal>();
@@ -41,8 +41,9 @@ function isOwnedTerminalName(name: string | undefined): boolean {
 	if (!name) {
 		return false;
 	}
+	const bare = stripTabTitlePad(name);
 	for (const base of ownedBaseTitles()) {
-		if (name === base || name.startsWith(`${base} #`)) {
+		if (bare === base || bare.startsWith(`${base} #`)) {
 			return true;
 		}
 	}
@@ -58,7 +59,7 @@ function bumpCounterFromName(name: string | undefined): void {
 	if (!name) {
 		return;
 	}
-	const match = /#(\d+)$/.exec(name);
+	const match = /#(\d+)$/.exec(stripTabTitlePad(name));
 	if (match) {
 		terminalCounter = Math.max(terminalCounter, parseInt(match[1], 10));
 	}
@@ -93,7 +94,7 @@ function terminalsInColumn(column: vscode.ViewColumn): vscode.Terminal[] {
 		}
 		for (const tab of group.tabs) {
 			if (tab.input instanceof vscode.TabInputTerminal) {
-				labels.add(tab.label);
+				labels.add(stripTabTitlePad(tab.label));
 			}
 		}
 	}
@@ -101,7 +102,7 @@ function terminalsInColumn(column: vscode.ViewColumn): vscode.Terminal[] {
 		return [];
 	}
 	return vscode.window.terminals.filter(
-		t => t.exitStatus === undefined && labels.has(t.name)
+		t => t.exitStatus === undefined && labels.has(stripTabTitlePad(t.name))
 	);
 }
 
@@ -125,7 +126,8 @@ function claimTerminalsInColumn(column: vscode.ViewColumn): void {
  */
 function recoverOwnedTerminals(direction: SplitDirection = 'right'): void {
 	const savedNames = new Set(
-		extensionContext?.workspaceState.get<string[]>(STATE_OWNED_CREATION_NAMES, []) ?? []
+		(extensionContext?.workspaceState.get<string[]>(STATE_OWNED_CREATION_NAMES, []) ?? [])
+			.map(stripTabTitlePad)
 	);
 
 	for (const terminal of vscode.window.terminals) {
@@ -136,7 +138,7 @@ function recoverOwnedTerminals(direction: SplitDirection = 'right'): void {
 		if (
 			isOwnedTerminalName(terminal.name) ||
 			isOwnedTerminalName(creationName) ||
-			(creationName !== undefined && savedNames.has(creationName))
+			(creationName !== undefined && savedNames.has(stripTabTitlePad(creationName)))
 		) {
 			claimOwnedTerminal(terminal);
 		}
@@ -213,7 +215,7 @@ function persistOwnedState(): void {
 		...new Set(
 			[...ownTerminals]
 				.filter(t => t.exitStatus === undefined)
-				.map(t => getCreationName(t) ?? t.name)
+				.map(t => stripTabTitlePad(getCreationName(t) ?? t.name))
 				.filter((n): n is string => !!n)
 		)
 	];
@@ -286,7 +288,7 @@ export function activate(context: vscode.ExtensionContext) {
  */
 function findOwnTerminalColumn(direction: SplitDirection = 'right'): vscode.ViewColumn | undefined {
 	const live = [...ownTerminals].filter(t => t.exitStatus === undefined);
-	const liveNames = new Set(live.map(t => t.name));
+	const liveNames = new Set(live.map(t => stripTabTitlePad(t.name)));
 
 	// 1) Last known column still has a terminal tab we own (by name match).
 	if (lastOwnViewColumn !== undefined && liveNames.size > 0) {
@@ -295,7 +297,7 @@ function findOwnTerminalColumn(direction: SplitDirection = 'right'): vscode.View
 				continue;
 			}
 			for (const tab of group.tabs) {
-				if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(tab.label)) {
+				if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(stripTabTitlePad(tab.label))) {
 					return lastOwnViewColumn;
 				}
 			}
@@ -315,7 +317,7 @@ function findOwnTerminalColumn(direction: SplitDirection = 'right'): vscode.View
 	if (liveNames.size > 0) {
 		for (const group of vscode.window.tabGroups.all) {
 			for (const tab of group.tabs) {
-				if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(tab.label)) {
+				if (tab.input instanceof vscode.TabInputTerminal && liveNames.has(stripTabTitlePad(tab.label))) {
 					lastOwnViewColumn = group.viewColumn;
 					return group.viewColumn;
 				}
@@ -357,7 +359,11 @@ async function waitForActiveTerminalTab(name: string, timeoutMs = 2000): Promise
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-		if (tab && tab.input instanceof vscode.TabInputTerminal && tab.label === name) {
+		if (
+			tab &&
+			tab.input instanceof vscode.TabInputTerminal &&
+			stripTabTitlePad(tab.label) === stripTabTitlePad(name)
+		) {
 			return true;
 		}
 		await new Promise(resolve => setTimeout(resolve, 50));
@@ -378,7 +384,7 @@ async function onFirstCommandStarted(terminal: vscode.Terminal, commandLine: str
 
 	// Keep only the first command of the line: chains, pipes and redirections
 	// would make an unwieldy tab title (see firstCommandTitle).
-	const title = firstCommandTitle(commandLine);
+	const title = padTabTitle(firstCommandTitle(commandLine));
 	if (!title) {
 		return;
 	}
@@ -455,14 +461,14 @@ async function openTerminalInRightPanel() {
 
 		if (newTerminalEachTime) {
 			terminalCounter++;
-			creationName = `${vscode.l10n.t('Terminal Right')} #${terminalCounter}`;
+			creationName = padTabTitle(`${vscode.l10n.t('Terminal Right')} #${terminalCounter}`);
 			terminal = vscode.window.createTerminal({
 				name: creationName,
 				iconPath: new vscode.ThemeIcon('terminal'),
 				location
 			});
 		} else {
-			creationName = vscode.l10n.t('Terminal Right');
+			creationName = padTabTitle(vscode.l10n.t('Terminal Right'));
 			terminal = vscode.window.createTerminal({
 				name: creationName,
 				iconPath: new vscode.ThemeIcon('terminal'),

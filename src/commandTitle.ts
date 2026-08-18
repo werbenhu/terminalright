@@ -106,3 +106,51 @@ function redirectStartIndex(commandLine: string, opIndex: number): number {
 	}
 	return opIndex;
 }
+
+/**
+ * Editor tabs size to the title, and VS Code overlays the hover close
+ * button on the last characters. Extensions cannot restyle workbench
+ * chrome, so titles are padded:
+ *  - short names (`x`, `g`) expand to a minimum clickable width
+ *  - the visible text is centered in that width
+ *  - extra width on the right keeps the close button off the text
+ *
+ * NBSP is not collapsed by CSS; ZWSP sentinels stop `String.trim()`
+ * (used by terminal rename) from eating the padding.
+ */
+const TAB_TITLE_NBSP = '\u00A0';
+const TAB_TITLE_ZWSP = '\u200B';
+
+/** Visible-character minimum before close-button reserve (e.g. `x` → 8). */
+export const TAB_TITLE_MIN_UNITS = 8;
+/** Extra NBSPs so the hover close button sits in padding, not on the text. */
+export const TAB_TITLE_CLOSE_RESERVE = 5;
+
+export function stripTabTitlePad(title: string): string {
+	return title
+		.replace(/^[\u00A0\u2007\u200B]+/u, '')
+		.replace(/[\u00A0\u2007\u200B]+$/u, '');
+}
+
+export function padTabTitle(title: string): string {
+	const core = stripTabTitlePad(title).trim();
+	if (!core) {
+		return '';
+	}
+	const extra = Math.max(0, TAB_TITLE_MIN_UNITS - [...core].length);
+	const total = extra + TAB_TITLE_CLOSE_RESERVE;
+	let left = Math.floor(total / 2);
+	let right = total - left;
+	if (right < TAB_TITLE_CLOSE_RESERVE) {
+		const shift = TAB_TITLE_CLOSE_RESERVE - right;
+		left -= shift;
+		right += shift;
+	}
+	return (
+		TAB_TITLE_ZWSP +
+		TAB_TITLE_NBSP.repeat(left) +
+		core +
+		TAB_TITLE_NBSP.repeat(right) +
+		TAB_TITLE_ZWSP
+	);
+}

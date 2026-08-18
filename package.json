@@ -2,7 +2,7 @@
   "name": "terminalright",
   "displayName": "Terminal Right",
   "description": "Open a terminal in a split view of the editor without moving the bottom panel",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "publisher": "werbenhu",
   "license": "MIT",
   "icon": "icon.png",

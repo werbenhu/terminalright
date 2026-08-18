@@ -1,5 +1,11 @@
 import * as assert from 'assert';
-import { firstCommandTitle } from './commandTitle';
+import {
+	TAB_TITLE_CLOSE_RESERVE,
+	TAB_TITLE_MIN_UNITS,
+	firstCommandTitle,
+	padTabTitle,
+	stripTabTitlePad,
+} from './commandTitle';
 
 const cases: Array<{ input: string; expected: string; note?: string }> = [
 	// chains
@@ -61,8 +67,91 @@ for (const { input, expected, note } of cases) {
 	}
 }
 
+function nbspCount(title: string): number {
+	return [...title].filter(ch => ch === '\u00A0').length;
+}
+
+function expectedPads(core: string): { nbsps: number; left: number; right: number } {
+	if (!core) {
+		return { nbsps: 0, left: 0, right: 0 };
+	}
+	const extra = Math.max(0, TAB_TITLE_MIN_UNITS - [...core].length);
+	const total = extra + TAB_TITLE_CLOSE_RESERVE;
+	let left = Math.floor(total / 2);
+	let right = total - left;
+	if (right < TAB_TITLE_CLOSE_RESERVE) {
+		const shift = TAB_TITLE_CLOSE_RESERVE - right;
+		left -= shift;
+		right += shift;
+	}
+	return { nbsps: left + right, left, right };
+}
+
+function sidePads(title: string, core: string): { left: number; right: number } {
+	const i = title.indexOf(core);
+	return {
+		left: nbspCount(title.slice(0, i)),
+		right: nbspCount(title.slice(i + core.length)),
+	};
+}
+
+const padCases: Array<{ input: string; core: string }> = [
+	{ input: 'x', core: 'x' },
+	{ input: 'g', core: 'g' },
+	{ input: 'h', core: 'h' },
+	{ input: 'cd', core: 'cd' },
+	{ input: 'claude', core: 'claude' },
+	{ input: 'npm run dev', core: 'npm run dev' },
+	{ input: '  x  ', core: 'x' },
+	{ input: '', core: '' },
+	{ input: '   ', core: '' },
+];
+
+for (const { input, core } of padCases) {
+	const actual = padTabTitle(input);
+	const expected = expectedPads(core);
+	try {
+		assert.strictEqual(stripTabTitlePad(actual), core, `strip ${JSON.stringify(input)}`);
+		assert.strictEqual(nbspCount(actual), expected.nbsps, `nbsp ${JSON.stringify(input)}`);
+		if (core) {
+			const sides = sidePads(actual, core);
+			assert.strictEqual(sides.left, expected.left, `left ${JSON.stringify(input)}`);
+			assert.strictEqual(sides.right, expected.right, `right ${JSON.stringify(input)}`);
+			assert.ok(sides.right >= TAB_TITLE_CLOSE_RESERVE, `close reserve ${JSON.stringify(input)}`);
+			assert.ok(actual.startsWith('\u200B') && actual.endsWith('\u200B'), `zwsp ${JSON.stringify(input)}`);
+			assert.strictEqual(padTabTitle(actual), actual, `idempotent ${JSON.stringify(input)}`);
+		} else {
+			assert.strictEqual(actual, '');
+		}
+		console.log(`  ok  pad ${JSON.stringify(input)} -> ${core || '(empty)'} L${expected.left}/R${expected.right}`);
+	} catch (err) {
+		failed++;
+		console.error(`  FAIL pad ${JSON.stringify(input)}`);
+		if (err instanceof Error && err.message) {
+			console.error(`       ${err.message}`);
+		}
+	}
+}
+
+// rename trim() must not eat padding on either side
+{
+	const padded = padTabTitle('x');
+	try {
+		assert.strictEqual(padded.trim(), padded, 'trim keeps close-button pad');
+		assert.ok(stripTabTitlePad(padded.trim()).length < padded.length);
+		assert.ok(sidePads(padded, 'x').left > 0, 'short title is centered');
+		console.log('  ok  pad survives String.trim() and centers short titles');
+	} catch (err) {
+		failed++;
+		console.error('  FAIL pad survives String.trim() and centers short titles');
+		if (err instanceof Error && err.message) {
+			console.error(`       ${err.message}`);
+		}
+	}
+}
+
 if (failed > 0) {
 	console.error(`\n${failed} test(s) failed`);
 	process.exit(1);
 }
-console.log(`\n${cases.length} test(s) passed`);
+console.log(`\n${cases.length + padCases.length + 1} test(s) passed`);
